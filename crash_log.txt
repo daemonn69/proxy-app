@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "C:\Users\semen\Desktop\proxy\main.py", line 302, in <module>
+    app = ProxyApp()
+  File "C:\Users\semen\Desktop\proxy\main.py", line 61, in __init__
+    self.add_context_menu(self.ip_entry)
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "C:\Users\semen\Desktop\proxy\main.py", line 260, in add_context_menu
+    menu = ctk.tkinter.Menu(self, tearoff=0)
+           ^^^^^^^^^^^
+AttributeError: module 'customtkinter' has no attribute 'tkinter'

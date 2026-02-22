@@ -1,0 +1,39 @@
+allow-lan: false
+dns:
+  enable: true
+  ipv6: false
+  listen: 0.0.0.0:53
+  nameserver:
+  - 8.8.8.8
+  - 1.1.1.1
+log-level: info
+mode: rule
+proxies:
+- name: MY_PROXY
+  password: LCI4SAO4
+  port: 47294
+  server: 167.148.96.209
+  type: http
+  username: ZDWHNVXT
+rules:
+- MATCH,MY_PROXY
+sniffer:
+  enable: true
+  override-destination: true
+  sniff:
+    HTTP:
+      ports:
+      - 80
+      - 8080
+    TLS:
+      ports:
+      - 443
+      - 8443
+tcp-concurrent: true
+tun:
+  auto-detect-interface: true
+  auto-route: true
+  enable: true
+  endpoint-independent-nat: true
+  stack: mixed
+udp: true

@@ -4,3 +4,4 @@ build/
 dist/
 cache.db
 *.spec
+bin/mihomo.exe

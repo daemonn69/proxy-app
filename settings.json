@@ -3,6 +3,6 @@
     "port": "47294",
     "user": "ZDWHNVXT",
     "password": "LCI4SAO4",
-    "mode": "global",
-    "apps": "chrome.exe Discord.exe"
+    "mode": "app",
+    "apps": "jawaw"
 }

@@ -323,11 +323,14 @@ class ProxyApp(ctk.CTk):
                 
                 # Запускаем как дочерний процесс
                 # Изменяем process_group, чтобы работало мягкое закрытие (CTRL_BREAK_EVENT)
+                # Обязательно DEVNULL, иначе буфер переполняется и процесс зависает
                 self.mihomo_process = subprocess.Popen(
                     [bin_executable, "-d", self.base_path, "-f", self.config_file],
                     startupinfo=startupinfo,
                     creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
-                    cwd=self.base_path
+                    cwd=self.base_path,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
                 )
                 
                 self.is_running = True
@@ -342,13 +345,14 @@ class ProxyApp(ctk.CTk):
                 # Просим закрыться мягко (CTRL_BREAK_EVENT), чтобы mihomo почистил маршруты Windows (TUN)
                 try:
                     os.kill(self.mihomo_process.pid, signal.CTRL_BREAK_EVENT)
-                    self.mihomo_process.wait(timeout=5)
+                    self.mihomo_process.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    # Если за 10 сек не закрылся сам - добиваем жестко
+                    try:
+                        subprocess.call(['taskkill', '/F', '/T', '/PID', str(self.mihomo_process.pid)], startupinfo=subprocess.STARTUPINFO(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    except:
+                        pass
                 except Exception:
-                    pass
-                try:
-                    # Если за 5 сек не закрылся сам - добиваем жестко
-                    subprocess.call(['taskkill', '/F', '/T', '/PID', str(self.mihomo_process.pid)], startupinfo=subprocess.STARTUPINFO(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                except:
                     pass
                 self.mihomo_process = None
                 
@@ -361,14 +365,18 @@ class ProxyApp(ctk.CTk):
         if self.is_running and self.mihomo_process:
             try:
                 os.kill(self.mihomo_process.pid, signal.CTRL_BREAK_EVENT)
-                self.mihomo_process.wait(timeout=5)
+                self.mihomo_process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                try:
+                    subprocess.call(['taskkill', '/F', '/T', '/PID', str(self.mihomo_process.pid)], startupinfo=subprocess.STARTUPINFO(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                except:
+                    pass
             except Exception:
                 pass
-            try:
-                subprocess.call(['taskkill', '/F', '/T', '/PID', str(self.mihomo_process.pid)], startupinfo=subprocess.STARTUPINFO(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            except:
-                pass
+            
+        self.quit()
         self.destroy()
+        os._exit(0)
 
     # --- Обработчики буфера обмена (через pyperclip) ---
     def add_context_menu(self, widget):

@@ -16,7 +16,9 @@ proxies:
   type: http
   username: ZDWHNVXT
 rules:
-- MATCH,MY_PROXY
+- AND,((PROCESS-NAME,jawaw.exe),(NETWORK,UDP)),REJECT
+- PROCESS-NAME,jawaw.exe,MY_PROXY
+- MATCH,DIRECT
 sniffer:
   enable: true
   override-destination: true

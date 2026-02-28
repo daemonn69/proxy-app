@@ -32,6 +32,25 @@ def get_bin_path():
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), "bin")
 
 class ProxyApp(ctk.CTk):
+
+    # ─── Цветовая палитра ───
+    COLOR_BG          = "#1a1a2e"
+    COLOR_CARD        = "#16213e"
+    COLOR_CARD_HOVER  = "#1a2744"
+    COLOR_ACCENT      = "#7c3aed"
+    COLOR_ACCENT_HOVER= "#6d28d9"
+    COLOR_GREEN       = "#10b981"
+    COLOR_GREEN_HOVER = "#059669"
+    COLOR_RED         = "#ef4444"
+    COLOR_RED_HOVER   = "#dc2626"
+    COLOR_GRAY        = "#64748b"
+    COLOR_GRAY_HOVER  = "#475569"
+    COLOR_TEXT         = "#e2e8f0"
+    COLOR_TEXT_DIM     = "#94a3b8"
+    COLOR_ENTRY_BG    = "#0f172a"
+    COLOR_ENTRY_BORDER= "#334155"
+    APP_VERSION       = "v1.1.0"
+
     def __init__(self):
         super().__init__()
 
@@ -40,94 +59,290 @@ class ProxyApp(ctk.CTk):
         self.settings_file = os.path.join(self.base_path, "settings.json")
         self.config_file = os.path.join(self.base_path, "config.yaml")
 
-        # Уничтожаем старые (зависшие) процессы mihomo.exe, чтобы они не ломали интернет
+        # Уничтожаем старые (зависшие) процессы mihomo.exe
         self.kill_orphaned_mihomo()
-        
+
+        # ─── Окно ───
         self.title("Smart Proxy Manager")
-        self.geometry("450x450")
+        self.geometry("540x700")
         self.resizable(False, False)
+        self.configure(fg_color=self.COLOR_BG)
 
-    def kill_orphaned_mihomo(self):
-        try:
-            # Убиваем все процессы mihomo.exe без вывода ошибок в консоль
-            subprocess.call(
-                ['taskkill', '/F', '/IM', 'mihomo.exe'], 
-                startupinfo=subprocess.STARTUPINFO(), 
-                stdout=subprocess.DEVNULL, 
-                stderr=subprocess.DEVNULL
-            )
-        except:
-            pass
-
-        
-        # Исправление работы буфера обмена (Ctrl+C / Ctrl+V) при запуске от имени Администратора
+        # Исправление буфера обмена при запуске от имени Администратора
         self.bind("<Control-c>", self.copy_clipboard)
         self.bind("<Control-v>", self.paste_clipboard)
         self.bind("<Control-x>", self.cut_clipboard)
 
-        # Заголовок
-        self.title_label = ctk.CTkLabel(self, text="Управление HTTP Прокси", font=ctk.CTkFont(size=20, weight="bold"))
-        self.title_label.pack(pady=20)
+        # ══════════════════════════════════════════
+        # ─── ЗАГОЛОВОК ───
+        # ══════════════════════════════════════════
+        header_frame = ctk.CTkFrame(self, fg_color="transparent")
+        header_frame.pack(fill="x", padx=25, pady=(14, 2))
 
-        # Поля для ввода IP и Порта
-        self.ip_entry = ctk.CTkEntry(self, placeholder_text="IP адрес (напр. 192.168.1.10)", width=250)
-        self.ip_entry.pack(pady=(10, 5))
+        self.title_label = ctk.CTkLabel(
+            header_frame,
+            text="⚡  Smart Proxy Manager",
+            font=ctk.CTkFont(size=22, weight="bold"),
+            text_color=self.COLOR_TEXT
+        )
+        self.title_label.pack(side="left")
 
-        self.port_entry = ctk.CTkEntry(self, placeholder_text="Порт (напр. 8080)", width=250)
-        self.port_entry.pack(pady=5)
+        # Индикатор статуса (точка) справа от заголовка
+        self.status_dot = ctk.CTkLabel(
+            header_frame,
+            text="●",
+            font=ctk.CTkFont(size=14),
+            text_color=self.COLOR_GRAY
+        )
+        self.status_dot.pack(side="right", padx=(0, 4))
 
-        # Поля для авторизации (Логин и Пароль)
-        self.user_entry = ctk.CTkEntry(self, placeholder_text="Логин (если есть)", width=250)
-        self.user_entry.pack(pady=5)
+        subtitle = ctk.CTkLabel(
+            self,
+            text="Управление HTTP-прокси через Mihomo",
+            font=ctk.CTkFont(size=12),
+            text_color=self.COLOR_TEXT_DIM
+        )
+        subtitle.pack(anchor="w", padx=28, pady=(0, 8))
 
-        self.pass_entry = ctk.CTkEntry(self, placeholder_text="Пароль (если есть)", show="*", width=250)
-        self.pass_entry.pack(pady=(5, 10))
+        # ══════════════════════════════════════════
+        # ─── СЕКЦИЯ 1: Прокси-сервер ───
+        # ══════════════════════════════════════════
+        proxy_card = ctk.CTkFrame(self, fg_color=self.COLOR_CARD, corner_radius=14)
+        proxy_card.pack(fill="x", padx=20, pady=(0, 6))
 
-        # Выбор режима
+        ctk.CTkLabel(
+            proxy_card,
+            text="🌐  Прокси-сервер",
+            font=ctk.CTkFont(size=14, weight="bold"),
+            text_color=self.COLOR_TEXT
+        ).grid(row=0, column=0, columnspan=2, sticky="w", padx=16, pady=(10, 6))
+
+        # IP
+        ctk.CTkLabel(proxy_card, text="IP", font=ctk.CTkFont(size=11), text_color=self.COLOR_TEXT_DIM).grid(
+            row=1, column=0, sticky="w", padx=(16, 4), pady=(0, 2)
+        )
+        self.ip_entry = ctk.CTkEntry(
+            proxy_card, placeholder_text="192.168.1.10",
+            fg_color=self.COLOR_ENTRY_BG, border_color=self.COLOR_ENTRY_BORDER,
+            text_color=self.COLOR_TEXT, width=300, height=34
+        )
+        self.ip_entry.grid(row=2, column=0, padx=(16, 6), pady=(0, 10), sticky="ew")
+
+        # Port
+        ctk.CTkLabel(proxy_card, text="Порт", font=ctk.CTkFont(size=11), text_color=self.COLOR_TEXT_DIM).grid(
+            row=1, column=1, sticky="w", padx=(6, 16), pady=(0, 2)
+        )
+        self.port_entry = ctk.CTkEntry(
+            proxy_card, placeholder_text="8080",
+            fg_color=self.COLOR_ENTRY_BG, border_color=self.COLOR_ENTRY_BORDER,
+            text_color=self.COLOR_TEXT, width=140, height=34
+        )
+        self.port_entry.grid(row=2, column=1, padx=(6, 16), pady=(0, 10), sticky="ew")
+
+        proxy_card.grid_columnconfigure(0, weight=3)
+        proxy_card.grid_columnconfigure(1, weight=1)
+
+        # ══════════════════════════════════════════
+        # ─── СЕКЦИЯ 2: Авторизация ───
+        # ══════════════════════════════════════════
+        auth_card = ctk.CTkFrame(self, fg_color=self.COLOR_CARD, corner_radius=14)
+        auth_card.pack(fill="x", padx=20, pady=(0, 6))
+
+        ctk.CTkLabel(
+            auth_card,
+            text="🔐  Авторизация",
+            font=ctk.CTkFont(size=14, weight="bold"),
+            text_color=self.COLOR_TEXT
+        ).grid(row=0, column=0, columnspan=2, sticky="w", padx=16, pady=(10, 6))
+
+        # Login
+        ctk.CTkLabel(auth_card, text="Логин", font=ctk.CTkFont(size=11), text_color=self.COLOR_TEXT_DIM).grid(
+            row=1, column=0, sticky="w", padx=(16, 4), pady=(0, 2)
+        )
+        self.user_entry = ctk.CTkEntry(
+            auth_card, placeholder_text="необязательно",
+            fg_color=self.COLOR_ENTRY_BG, border_color=self.COLOR_ENTRY_BORDER,
+            text_color=self.COLOR_TEXT, height=34
+        )
+        self.user_entry.grid(row=2, column=0, padx=(16, 6), pady=(0, 10), sticky="ew")
+
+        # Password
+        ctk.CTkLabel(auth_card, text="Пароль", font=ctk.CTkFont(size=11), text_color=self.COLOR_TEXT_DIM).grid(
+            row=1, column=1, sticky="w", padx=(6, 16), pady=(0, 2)
+        )
+        self.pass_entry = ctk.CTkEntry(
+            auth_card, placeholder_text="необязательно", show="•",
+            fg_color=self.COLOR_ENTRY_BG, border_color=self.COLOR_ENTRY_BORDER,
+            text_color=self.COLOR_TEXT, height=34
+        )
+        self.pass_entry.grid(row=2, column=1, padx=(6, 16), pady=(0, 10), sticky="ew")
+
+        auth_card.grid_columnconfigure(0, weight=1)
+        auth_card.grid_columnconfigure(1, weight=1)
+
+        # ══════════════════════════════════════════
+        # ─── СЕКЦИЯ 3: Режим работы ───
+        # ══════════════════════════════════════════
+        mode_card = ctk.CTkFrame(self, fg_color=self.COLOR_CARD, corner_radius=14)
+        mode_card.pack(fill="x", padx=20, pady=(0, 6))
+
+        ctk.CTkLabel(
+            mode_card,
+            text="⚙️  Режим работы",
+            font=ctk.CTkFont(size=14, weight="bold"),
+            text_color=self.COLOR_TEXT
+        ).pack(anchor="w", padx=16, pady=(10, 6))
+
         self.mode_var = ctk.StringVar(value="global")
-        
-        self.radio_global = ctk.CTkRadioButton(self, text="Весь ПК (Глобально)", variable=self.mode_var, value="global", command=self.update_ui)
-        self.radio_global.pack(pady=10)
 
-        self.radio_app = ctk.CTkRadioButton(self, text="Только для конкретных программ", variable=self.mode_var, value="app", command=self.update_ui)
-        self.radio_app.pack(pady=10)
+        radio_frame = ctk.CTkFrame(mode_card, fg_color="transparent")
+        radio_frame.pack(fill="x", padx=16, pady=(0, 4))
 
-        # Поле для ввода названий программ (будет скрыто в глобальном режиме)
-        self.apps_entry = ctk.CTkEntry(self, placeholder_text="Программы: chrome.exe, game.exe", width=250)
-        
-        # --- Добавляем меню по правой кнопке к каждому полю ---
+        self.radio_global = ctk.CTkRadioButton(
+            radio_frame, text="🖥  Весь ПК (Глобально)",
+            variable=self.mode_var, value="global", command=self.update_ui,
+            fg_color=self.COLOR_ACCENT, hover_color=self.COLOR_ACCENT_HOVER,
+            text_color=self.COLOR_TEXT, font=ctk.CTkFont(size=13)
+        )
+        self.radio_global.pack(side="left", padx=(0, 20))
+
+        self.radio_app = ctk.CTkRadioButton(
+            radio_frame, text="📋  Только программы",
+            variable=self.mode_var, value="app", command=self.update_ui,
+            fg_color=self.COLOR_ACCENT, hover_color=self.COLOR_ACCENT_HOVER,
+            text_color=self.COLOR_TEXT, font=ctk.CTkFont(size=13)
+        )
+        self.radio_app.pack(side="left")
+
+        # Поле для ввода программ (скрыто по умолчанию)
+        self.apps_frame = ctk.CTkFrame(mode_card, fg_color="transparent")
+        self.apps_entry = ctk.CTkEntry(
+            self.apps_frame, placeholder_text="chrome.exe, discord.exe, telegram.exe",
+            fg_color=self.COLOR_ENTRY_BG, border_color=self.COLOR_ENTRY_BORDER,
+            text_color=self.COLOR_TEXT, height=34
+        )
+        self.apps_entry.pack(fill="x", padx=0, pady=(6, 0))
+
+        # Разделитель в карточке (нижний padding)
+        self.mode_card_bottom_spacer = ctk.CTkFrame(mode_card, fg_color="transparent", height=8)
+        self.mode_card_bottom_spacer.pack()
+
+        # ══════════════════════════════════════════
+        # ─── СЕКЦИЯ 3.5: Домены-исключения ───
+        # ══════════════════════════════════════════
+        exclude_card = ctk.CTkFrame(self, fg_color=self.COLOR_CARD, corner_radius=14)
+        exclude_card.pack(fill="x", padx=20, pady=(0, 6))
+
+        ctk.CTkLabel(
+            exclude_card,
+            text="🚫  Исключения (домены → напрямую)",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color=self.COLOR_TEXT
+        ).pack(anchor="w", padx=16, pady=(10, 6))
+
+        self.exclude_entry = ctk.CTkEntry(
+            exclude_card, placeholder_text="google.com, youtube.com, github.com",
+            fg_color=self.COLOR_ENTRY_BG, border_color=self.COLOR_ENTRY_BORDER,
+            text_color=self.COLOR_TEXT, height=34
+        )
+        self.exclude_entry.pack(fill="x", padx=16, pady=(0, 10))
+
+        # ─── Контекстные меню ───
         self.add_context_menu(self.ip_entry)
         self.add_context_menu(self.port_entry)
         self.add_context_menu(self.user_entry)
         self.add_context_menu(self.pass_entry)
         self.add_context_menu(self.apps_entry)
-        
-        # Строка статуса/чекера
-        self.status_label = ctk.CTkLabel(self, text="Статус: Ожидание...", text_color="gray")
-        self.status_label.pack(pady=(10, 0))
+        self.add_context_menu(self.exclude_entry)
 
-        # Общий фрейм для кнопок
+        # ══════════════════════════════════════════
+        # ─── СЕКЦИЯ 4: Статус ───
+        # ══════════════════════════════════════════
+        status_card = ctk.CTkFrame(self, fg_color=self.COLOR_CARD, corner_radius=14)
+        status_card.pack(fill="x", padx=20, pady=(0, 6))
+
+        self.status_label = ctk.CTkLabel(
+            status_card,
+            text="⏳  Ожидание...",
+            font=ctk.CTkFont(size=13),
+            text_color=self.COLOR_TEXT_DIM
+        )
+        self.status_label.pack(padx=16, pady=(8, 3), anchor="w")
+
+        self.progress_bar = ctk.CTkProgressBar(
+            status_card,
+            progress_color=self.COLOR_ACCENT,
+            fg_color=self.COLOR_ENTRY_BG,
+            height=6
+        )
+        self.progress_bar.pack(fill="x", padx=16, pady=(0, 8))
+        self.progress_bar.set(0)
+
+        # ══════════════════════════════════════════
+        # ─── КНОПКИ ───
+        # ══════════════════════════════════════════
         self.btn_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.btn_frame.pack(pady=10)
+        self.btn_frame.pack(fill="x", padx=20, pady=(4, 4))
 
-        # Кнопка проверки прокси
-        self.check_btn = ctk.CTkButton(self.btn_frame, text="Проверить", fg_color="gray", hover_color="darkgray", width=100, command=self.check_proxy_thread)
-        self.check_btn.grid(row=0, column=0, padx=10)
-
-        # Кнопка включения/выключения
         self.is_running = False
         self.mihomo_process = None
-        self.toggle_btn = ctk.CTkButton(self.btn_frame, text="Включить", fg_color="green", hover_color="darkgreen", width=100, command=self.toggle_proxy)
-        self.toggle_btn.grid(row=0, column=1, padx=10)
 
-        # Загрузка сохраненных настроек
+        self.check_btn = ctk.CTkButton(
+            self.btn_frame, text="🔍 Проверить",
+            fg_color=self.COLOR_GRAY, hover_color=self.COLOR_GRAY_HOVER,
+            text_color="white", height=38, corner_radius=10,
+            font=ctk.CTkFont(size=13, weight="bold"),
+            command=self.check_proxy_thread
+        )
+        self.check_btn.grid(row=0, column=0, padx=(0, 6), sticky="ew")
+
+        self.toggle_btn = ctk.CTkButton(
+            self.btn_frame, text="▶  Включить",
+            fg_color=self.COLOR_GREEN, hover_color=self.COLOR_GREEN_HOVER,
+            text_color="white", height=38, corner_radius=10,
+            font=ctk.CTkFont(size=13, weight="bold"),
+            command=self.toggle_proxy
+        )
+        self.toggle_btn.grid(row=0, column=1, padx=6, sticky="ew")
+
+        self.update_core_btn = ctk.CTkButton(
+            self.btn_frame, text="⬇  Ядро",
+            fg_color=self.COLOR_ACCENT, hover_color=self.COLOR_ACCENT_HOVER,
+            text_color="white", height=38, corner_radius=10,
+            font=ctk.CTkFont(size=13, weight="bold"),
+            command=self.download_core_thread
+        )
+        self.update_core_btn.grid(row=0, column=2, padx=(6, 0), sticky="ew")
+
+        self.btn_frame.grid_columnconfigure(0, weight=1)
+        self.btn_frame.grid_columnconfigure(1, weight=1)
+        self.btn_frame.grid_columnconfigure(2, weight=1)
+
+        # ─── Футер ───
+        footer = ctk.CTkLabel(
+            self,
+            text=f"Smart Proxy Manager {self.APP_VERSION}  •  Mihomo Engine",
+            font=ctk.CTkFont(size=10),
+            text_color="#475569"
+        )
+        footer.pack(side="bottom", pady=(0, 8))
+
+        # ─── Загрузка настроек и финализация ───
         self.load_settings()
-
-        # Начальное скрытие текстового поля программ
         self.update_ui()
-        
-        # Обработка закрытия окна
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
+
+    def kill_orphaned_mihomo(self):
+        """Убивает все зависшие процессы mihomo.exe"""
+        try:
+            subprocess.call(
+                ['taskkill', '/F', '/IM', 'mihomo.exe'],
+                startupinfo=subprocess.STARTUPINFO(),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+        except:
+            pass
 
     def load_settings(self):
         try:
@@ -140,6 +355,7 @@ class ProxyApp(ctk.CTk):
                     self.pass_entry.insert(0, data.get("password", ""))
                     self.mode_var.set(data.get("mode", "global"))
                     self.apps_entry.insert(0, data.get("apps", ""))
+                    self.exclude_entry.insert(0, data.get("exclude_domains", ""))
         except Exception:
             pass
 
@@ -150,7 +366,8 @@ class ProxyApp(ctk.CTk):
             "user": self.user_entry.get().strip(),
             "password": self.pass_entry.get().strip(),
             "mode": self.mode_var.get(),
-            "apps": self.apps_entry.get().strip()
+            "apps": self.apps_entry.get().strip(),
+            "exclude_domains": self.exclude_entry.get().strip()
         }
         try:
             with open(self.settings_file, "w", encoding="utf-8") as f:
@@ -159,13 +376,24 @@ class ProxyApp(ctk.CTk):
             pass
 
     def update_ui(self):
-        # Показываем или скрываем поле программ в зависимости от режима
         if self.mode_var.get() == "app":
-            self.apps_entry.pack(pady=5, before=self.status_label)
+            self.apps_frame.pack(fill="x", padx=16, pady=(0, 0), before=self.mode_card_bottom_spacer)
         else:
-            self.apps_entry.pack_forget()
+            self.apps_frame.pack_forget()
             
-    def generate_config(self, ip, port, username, password, mode, apps_str):
+    def generate_config(self, ip, port, username, password, mode, apps_str, exclude_str=""):
+        # Парсим домены-исключения
+        excluded_domains = []
+        if exclude_str and exclude_str.strip():
+            for d in exclude_str.replace(',', ' ').split():
+                d = d.strip().lower()
+                d = d.replace("http://", "").replace("https://", "").strip("/")
+                # Убираем www. — DOMAIN-SUFFIX без www. матчит и www.domain, и domain
+                if d.startswith("www."):
+                    d = d[4:]
+                if d:
+                    excluded_domains.append(d)
+
         # Базовая структура конфига
         config = {
             "mode": "rule",
@@ -184,6 +412,8 @@ class ProxyApp(ctk.CTk):
                 "enable": True,
                 "listen": "0.0.0.0:53",
                 "ipv6": False,
+                "enhanced-mode": "fake-ip",
+                "fake-ip-range": "198.18.0.1/16",
                 "nameserver": ["8.8.8.8", "1.1.1.1"]
             },
             "sniffer": {
@@ -208,7 +438,12 @@ class ProxyApp(ctk.CTk):
             ],
             "rules": []
         }
-        
+
+        # Добавляем force-domain в sniffer для исключённых доменов
+        # Это гарантирует что mihomo будет сниффить эти домены из SNI/Host
+        if excluded_domains:
+            config["sniffer"]["force-domain"] = excluded_domains
+
         # Добавляем авторизацию если она есть
         if username and password:
             config["proxies"][0]["username"] = username
@@ -216,29 +451,30 @@ class ProxyApp(ctk.CTk):
 
         # Настраиваем правила (роутинг)
         if mode == "global":
-            # Весь трафик идет через прокси
+            # Исключения → DIRECT, остальное → PROXY
+            for domain in excluded_domains:
+                config["rules"].append(f"DOMAIN-SUFFIX,{domain},DIRECT")
             config["rules"].append("MATCH,MY_PROXY")
         else:
-            # Трафик идет через прокси только для указанных процессов
+            # Режим "для конкретных программ"
             if apps_str.strip():
-                # Разбиваем строку по запятым и пробелам
                 apps_list = [app.strip() for app in apps_str.replace(',', ' ').split() if app.strip()]
                 for app in apps_list:
-                    # Добавляем .exe если юзер забыл
                     if not app.lower().endswith(".exe"):
                         app += ".exe"
-                    
-                    # ПРИЦЕЛЬНАЯ БЛОКИРОВКА UDP:
-                    # HTTP-прокси не поддерживают UDP (включая QUIC и DNS-over-UDP). 
-                    # Мы принудительно отбиваем UDP пакеты только от тех программ, которые пускаем через прокси.
-                    # Из-за этого Chrome/Firefox за миллисекунду понимают, что QUIC не работает, 
-                    # и переключаются на 100% стабильный TCP протокол, который отлично идет через HTTP прокси!
+
+                    # Для каждого исключённого домена: трафик от этого процесса к этому домену → DIRECT
+                    # Ставим ДО правил прокси, чтобы перехватить первыми
+                    for domain in excluded_domains:
+                        config["rules"].append(f"AND,((PROCESS-NAME,{app}),(DOMAIN-SUFFIX,{domain})),DIRECT")
+
+                    # Блокировка UDP для этого процесса (HTTP-прокси не поддерживает UDP/QUIC)
                     config["rules"].append(f"AND,((PROCESS-NAME,{app}),(NETWORK,UDP)),REJECT")
-                    
-                    # Сам TCP трафик от нужной программы кидаем в наш прокси
+
+                    # TCP трафик от нужного процесса → через прокси
                     config["rules"].append(f"PROCESS-NAME,{app},MY_PROXY")
-                    
-            # Остальной трафик пускаем напрямую мимо прокси (это починит Дискорд, Телеграм и любые другие фоновые программы)
+
+            # Остальной трафик → напрямую
             config["rules"].append("MATCH,DIRECT")
 
         # Сохраняем в файл config.yaml
@@ -256,10 +492,12 @@ class ProxyApp(ctk.CTk):
         pwd = self.pass_entry.get().strip()
         
         if not ip or not port:
-            self.status_label.configure(text="Введите IP и порт", text_color="red")
+            self.status_label.configure(text="⚠️  Введите IP и порт", text_color=self.COLOR_RED)
             return
             
-        self.status_label.configure(text="Проверяем подключение...", text_color="yellow")
+        self.status_label.configure(text="🔄  Проверяем подключение...", text_color="#fbbf24")
+        self.progress_bar.configure(mode="indeterminate")
+        self.progress_bar.start()
         
         # Формируем строку прокси для библиотеки requests
         proxy_url = f"http://{user}:{pwd}@{ip}:{port}" if user and pwd else f"http://{ip}:{port}"
@@ -276,17 +514,128 @@ class ProxyApp(ctk.CTk):
                 real_ip = data.get("query", "Неизвестно")
                 isp = data.get("isp", "Неизвестно")
                 
-                info = f"✅ Успешно! {country}, {city} ({isp})"
-                self.status_label.configure(text=info, text_color="green")
+                info = f"✅  {country}, {city} — {isp}"
+                self.status_label.configure(text=info, text_color=self.COLOR_GREEN)
+                self.progress_bar.stop()
+                self.progress_bar.configure(mode="determinate")
+                self.progress_bar.set(1)
             else:
-                self.status_label.configure(text="❌ Сервис не вернул данные", text_color="red")
+                self.status_label.configure(text="❌  Сервис не вернул данные", text_color=self.COLOR_RED)
+                self.progress_bar.stop()
+                self.progress_bar.configure(mode="determinate")
+                self.progress_bar.set(0)
                 
         except requests.exceptions.ProxyError:
-            self.status_label.configure(text="❌ Ошибка прокси (неверный IP/Порт/Авторизация)", text_color="red")
+            self.status_label.configure(text="❌  Ошибка прокси (IP/Порт/Авториз.)", text_color=self.COLOR_RED)
+            self.progress_bar.stop()
+            self.progress_bar.configure(mode="determinate")
+            self.progress_bar.set(0)
         except requests.exceptions.Timeout:
-            self.status_label.configure(text="❌ Прокси не отвечает (Таймаут)", text_color="red")
+            self.status_label.configure(text="❌  Прокси не отвечает (Таймаут)", text_color=self.COLOR_RED)
+            self.progress_bar.stop()
+            self.progress_bar.configure(mode="determinate")
+            self.progress_bar.set(0)
         except Exception as e:
-            self.status_label.configure(text="❌ Ошибка подключения", text_color="red")
+            self.status_label.configure(text="❌  Ошибка подключения", text_color=self.COLOR_RED)
+            self.progress_bar.stop()
+            self.progress_bar.configure(mode="determinate")
+            self.progress_bar.set(0)
+
+    def download_core_thread(self):
+        # Если прокси запущен, предупреждаем
+        if self.is_running:
+            messagebox.showwarning("Внимание", "Сначала выключите прокси перед обновлением ядра!")
+            return
+        threading.Thread(target=self.do_download_core, daemon=True).start()
+
+    def do_download_core(self):
+        import zipfile
+        import io
+        
+        self.status_label.configure(text="🔍  Поиск актуального ядра...", text_color="#fbbf24")
+        self.progress_bar.configure(mode="indeterminate")
+        self.progress_bar.start()
+        self.update_core_btn.configure(state="disabled")
+        try:
+            # Получаем инфо о последнем релизе
+            resp = requests.get("https://api.github.com/repos/MetaCubeX/mihomo/releases/latest", timeout=10)
+            resp.raise_for_status()
+            data = resp.json()
+            
+            # Ищем нужный архив для Windows AMD64
+            target_asset = None
+            for asset in data.get("assets", []):
+                # Берём windows amd64 compatible (самый универсальный для 64-бит)
+                if "windows-amd64-compatible" in asset["name"] and asset["name"].endswith(".zip"):
+                    target_asset = asset
+                    break
+                    
+            if not target_asset:
+                for asset in data.get("assets", []):
+                    if "windows-amd64" in asset["name"] and asset["name"].endswith(".zip"):
+                        target_asset = asset
+                        break
+            
+            if not target_asset:
+                self.status_label.configure(text="❌  Ядро для Windows не найдено", text_color=self.COLOR_RED)
+                self.progress_bar.stop()
+                self.progress_bar.configure(mode="determinate")
+                self.progress_bar.set(0)
+                self.update_core_btn.configure(state="normal")
+                return
+                
+            download_url = target_asset["browser_download_url"]
+            file_name = target_asset["name"]
+            
+            self.status_label.configure(text=f"⬇  Скачивание {file_name}...", text_color="#fbbf24")
+            
+            # Скачиваем архив в память
+            zip_resp = requests.get(download_url, timeout=60)
+            zip_resp.raise_for_status()
+            
+            self.status_label.configure(text="📦  Распаковка...", text_color="#fbbf24")
+            
+            # Если папки bin нет, создадим её
+            if not os.path.exists(self.bin_path):
+                os.makedirs(self.bin_path)
+                
+            # Распаковываем exe
+            with zipfile.ZipFile(io.BytesIO(zip_resp.content)) as z:
+                # Ищем .exe внутри
+                exe_filename = None
+                for name in z.namelist():
+                    if name.lower().endswith(".exe"):
+                        exe_filename = name
+                        break
+                
+                if exe_filename:
+                    exe_data = z.read(exe_filename)
+                    # Останавливаем любые зависшие старые процессы перед перезаписью
+                    self.kill_orphaned_mihomo()
+                    
+                    target_path = os.path.join(self.bin_path, "mihomo.exe")
+                    with open(target_path, "wb") as f:
+                        f.write(exe_data)
+                    
+                    tag = data.get('tag_name', '')
+                    self.status_label.configure(text=f"✅  Ядро обновлено ({tag})", text_color=self.COLOR_GREEN)
+                    self.progress_bar.stop()
+                    self.progress_bar.configure(mode="determinate")
+                    self.progress_bar.set(1)
+                else:
+                    self.status_label.configure(text="❌  В архиве нет .exe", text_color=self.COLOR_RED)
+                    self.progress_bar.stop()
+                    self.progress_bar.configure(mode="determinate")
+                    self.progress_bar.set(0)
+                    
+        except Exception as e:
+            self.status_label.configure(text="❌  Ошибка скачивания", text_color=self.COLOR_RED)
+            self.progress_bar.stop()
+            self.progress_bar.configure(mode="determinate")
+            self.progress_bar.set(0)
+            messagebox.showerror("Ошибка", f"Не удалось скачать ядро:\n{e}")
+        finally:
+            self.update_core_btn.configure(state="normal")
 
     def toggle_proxy(self):
         ip = self.ip_entry.get().strip()
@@ -309,7 +658,7 @@ class ProxyApp(ctk.CTk):
         if not self.is_running:
             try:
                 # Генерируем конфигурацию
-                self.generate_config(ip, port, username, password, mode, apps)
+                self.generate_config(ip, port, username, password, mode, apps, self.exclude_entry.get().strip())
                 
                 # Запускаем Mihomo
                 bin_executable = os.path.join(self.bin_path, "mihomo.exe")
@@ -334,7 +683,10 @@ class ProxyApp(ctk.CTk):
                 )
                 
                 self.is_running = True
-                self.toggle_btn.configure(text="Выключить прокси", fg_color="red", hover_color="darkred")
+                self.toggle_btn.configure(text="⏹  Выключить", fg_color=self.COLOR_RED, hover_color=self.COLOR_RED_HOVER)
+                self.status_dot.configure(text_color=self.COLOR_GREEN)
+                self.status_label.configure(text="🟢  Прокси активен", text_color=self.COLOR_GREEN)
+                self.progress_bar.set(1)
                 
             except Exception as e:
                 messagebox.showerror("Ошибка запуска", f"Не удалось запустить прокси:\n{str(e)}")
@@ -357,7 +709,10 @@ class ProxyApp(ctk.CTk):
                 self.mihomo_process = None
                 
             self.is_running = False
-            self.toggle_btn.configure(text="Включить прокси", fg_color="green", hover_color="darkgreen")
+            self.toggle_btn.configure(text="▶  Включить", fg_color=self.COLOR_GREEN, hover_color=self.COLOR_GREEN_HOVER)
+            self.status_dot.configure(text_color=self.COLOR_GRAY)
+            self.status_label.configure(text="⏳  Ожидание...", text_color=self.COLOR_TEXT_DIM)
+            self.progress_bar.set(0)
 
     def on_closing(self):
         self.save_settings()

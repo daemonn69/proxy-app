@@ -4,6 +4,7 @@
     "user": "ZDWHNVXT",
     "password": "LCI4SAO4",
     "mode": "app",
-    "apps": "telegram Discord chrome",
-    "exclude_domains": "app.lighter.xyz www.whatismyip.com"
+    "apps": "jawaw discord telegram",
+    "exclude_domains": "",
+    "zapret_discord": true
 }

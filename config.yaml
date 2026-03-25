@@ -18,24 +18,15 @@ proxies:
   type: http
   username: ZDWHNVXT
 rules:
-- AND,((PROCESS-NAME,telegram.exe),(DOMAIN-SUFFIX,app.lighter.xyz)),DIRECT
-- AND,((PROCESS-NAME,telegram.exe),(DOMAIN-SUFFIX,whatismyip.com)),DIRECT
+- AND,((PROCESS-NAME,jawaw.exe),(NETWORK,UDP)),REJECT
+- PROCESS-NAME,jawaw.exe,MY_PROXY
+- AND,((PROCESS-NAME,discord.exe),(NETWORK,UDP)),DIRECT
+- PROCESS-NAME,discord.exe,MY_PROXY
 - AND,((PROCESS-NAME,telegram.exe),(NETWORK,UDP)),REJECT
 - PROCESS-NAME,telegram.exe,MY_PROXY
-- AND,((PROCESS-NAME,Discord.exe),(DOMAIN-SUFFIX,app.lighter.xyz)),DIRECT
-- AND,((PROCESS-NAME,Discord.exe),(DOMAIN-SUFFIX,whatismyip.com)),DIRECT
-- AND,((PROCESS-NAME,Discord.exe),(NETWORK,UDP)),REJECT
-- PROCESS-NAME,Discord.exe,MY_PROXY
-- AND,((PROCESS-NAME,chrome.exe),(DOMAIN-SUFFIX,app.lighter.xyz)),DIRECT
-- AND,((PROCESS-NAME,chrome.exe),(DOMAIN-SUFFIX,whatismyip.com)),DIRECT
-- AND,((PROCESS-NAME,chrome.exe),(NETWORK,UDP)),REJECT
-- PROCESS-NAME,chrome.exe,MY_PROXY
 - MATCH,DIRECT
 sniffer:
   enable: true
-  force-domain:
-  - app.lighter.xyz
-  - whatismyip.com
   override-destination: true
   sniff:
     HTTP:

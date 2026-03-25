@@ -59,12 +59,13 @@ class ProxyApp(ctk.CTk):
         self.settings_file = os.path.join(self.base_path, "settings.json")
         self.config_file = os.path.join(self.base_path, "config.yaml")
 
-        # Уничтожаем старые (зависшие) процессы mihomo.exe
+        # Уничтожаем старые (зависшие) процессы mihomo.exe и winws.exe
         self.kill_orphaned_mihomo()
+        self.kill_orphaned_winws()
 
         # ─── Окно ───
         self.title("Smart Proxy Manager")
-        self.geometry("540x700")
+        self.geometry("540x780")
         self.resizable(False, False)
         self.configure(fg_color=self.COLOR_BG)
 
@@ -247,6 +248,42 @@ class ProxyApp(ctk.CTk):
         )
         self.exclude_entry.pack(fill="x", padx=16, pady=(0, 10))
 
+        # ══════════════════════════════════════════
+        # ─── СЕКЦИЯ 3.6: DPI Discord (zapret) ───
+        # ══════════════════════════════════════════
+        zapret_card = ctk.CTkFrame(self, fg_color=self.COLOR_CARD, corner_radius=14)
+        zapret_card.pack(fill="x", padx=20, pady=(0, 6))
+
+        zapret_header = ctk.CTkFrame(zapret_card, fg_color="transparent")
+        zapret_header.pack(fill="x", padx=16, pady=(10, 6))
+
+        ctk.CTkLabel(
+            zapret_header,
+            text="🎙  Discord Voice (DPI bypass)",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color=self.COLOR_TEXT
+        ).pack(side="left")
+
+        self.zapret_var = ctk.BooleanVar(value=False)
+        self.zapret_switch = ctk.CTkSwitch(
+            zapret_header,
+            text="",
+            variable=self.zapret_var,
+            width=40,
+            fg_color=self.COLOR_GRAY,
+            progress_color=self.COLOR_GREEN,
+            button_color=self.COLOR_TEXT,
+            button_hover_color="#cbd5e1"
+        )
+        self.zapret_switch.pack(side="right")
+
+        ctk.CTkLabel(
+            zapret_card,
+            text="Обход блокировки голосового чата через zapret (winws.exe)",
+            font=ctk.CTkFont(size=11),
+            text_color=self.COLOR_TEXT_DIM
+        ).pack(anchor="w", padx=16, pady=(0, 10))
+
         # ─── Контекстные меню ───
         self.add_context_menu(self.ip_entry)
         self.add_context_menu(self.port_entry)
@@ -286,6 +323,7 @@ class ProxyApp(ctk.CTk):
 
         self.is_running = False
         self.mihomo_process = None
+        self.winws_process = None
 
         self.check_btn = ctk.CTkButton(
             self.btn_frame, text="🔍 Проверить",
@@ -344,6 +382,18 @@ class ProxyApp(ctk.CTk):
         except:
             pass
 
+    def kill_orphaned_winws(self):
+        """Убивает все зависшие процессы winws.exe"""
+        try:
+            subprocess.call(
+                ['taskkill', '/F', '/IM', 'winws.exe'],
+                startupinfo=subprocess.STARTUPINFO(),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+        except:
+            pass
+
     def load_settings(self):
         try:
             if os.path.exists(self.settings_file):
@@ -356,6 +406,7 @@ class ProxyApp(ctk.CTk):
                     self.mode_var.set(data.get("mode", "global"))
                     self.apps_entry.insert(0, data.get("apps", ""))
                     self.exclude_entry.insert(0, data.get("exclude_domains", ""))
+                    self.zapret_var.set(data.get("zapret_discord", False))
         except Exception:
             pass
 
@@ -367,7 +418,8 @@ class ProxyApp(ctk.CTk):
             "password": self.pass_entry.get().strip(),
             "mode": self.mode_var.get(),
             "apps": self.apps_entry.get().strip(),
-            "exclude_domains": self.exclude_entry.get().strip()
+            "exclude_domains": self.exclude_entry.get().strip(),
+            "zapret_discord": self.zapret_var.get()
         }
         try:
             with open(self.settings_file, "w", encoding="utf-8") as f:
@@ -449,8 +501,14 @@ class ProxyApp(ctk.CTk):
             config["proxies"][0]["username"] = username
             config["proxies"][0]["password"] = password
 
+        # Проверяем, включён ли обход DPI для Discord
+        zapret_enabled = self.zapret_var.get()
+
         # Настраиваем правила (роутинг)
         if mode == "global":
+            # Если zapret включён — Discord UDP идёт DIRECT (zapret обходит DPI)
+            if zapret_enabled:
+                config["rules"].append("AND,((PROCESS-NAME,discord.exe),(NETWORK,UDP)),DIRECT")
             # Исключения → DIRECT, остальное → PROXY
             for domain in excluded_domains:
                 config["rules"].append(f"DOMAIN-SUFFIX,{domain},DIRECT")
@@ -468,8 +526,12 @@ class ProxyApp(ctk.CTk):
                     for domain in excluded_domains:
                         config["rules"].append(f"AND,((PROCESS-NAME,{app}),(DOMAIN-SUFFIX,{domain})),DIRECT")
 
-                    # Блокировка UDP для этого процесса (HTTP-прокси не поддерживает UDP/QUIC)
-                    config["rules"].append(f"AND,((PROCESS-NAME,{app}),(NETWORK,UDP)),REJECT")
+                    # UDP: если это discord.exe и zapret включён → DIRECT, иначе REJECT
+                    if app.lower() == "discord.exe" and zapret_enabled:
+                        config["rules"].append(f"AND,((PROCESS-NAME,{app}),(NETWORK,UDP)),DIRECT")
+                    else:
+                        # Блокировка UDP для этого процесса (HTTP-прокси не поддерживает UDP/QUIC)
+                        config["rules"].append(f"AND,((PROCESS-NAME,{app}),(NETWORK,UDP)),REJECT")
 
                     # TCP трафик от нужного процесса → через прокси
                     config["rules"].append(f"PROCESS-NAME,{app},MY_PROXY")
@@ -682,17 +744,25 @@ class ProxyApp(ctk.CTk):
                     stderr=subprocess.DEVNULL
                 )
                 
+                # Запускаем winws.exe для обхода DPI Discord Voice (если включён)
+                if self.zapret_var.get():
+                    self.start_winws()
+                
                 self.is_running = True
                 self.toggle_btn.configure(text="⏹  Выключить", fg_color=self.COLOR_RED, hover_color=self.COLOR_RED_HOVER)
                 self.status_dot.configure(text_color=self.COLOR_GREEN)
-                self.status_label.configure(text="🟢  Прокси активен", text_color=self.COLOR_GREEN)
+                status_text = "🟢  Прокси активен" + (" + DPI Discord" if self.zapret_var.get() else "")
+                self.status_label.configure(text=status_text, text_color=self.COLOR_GREEN)
                 self.progress_bar.set(1)
                 
             except Exception as e:
                 messagebox.showerror("Ошибка запуска", f"Не удалось запустить прокси:\n{str(e)}")
             
         else:
-            # Останавливаем процесс
+            # Останавливаем winws.exe (если запущен)
+            self.stop_winws()
+
+            # Останавливаем процесс mihomo
             if self.mihomo_process:
                 # Просим закрыться мягко (CTRL_BREAK_EVENT), чтобы mihomo почистил маршруты Windows (TUN)
                 try:
@@ -714,8 +784,65 @@ class ProxyApp(ctk.CTk):
             self.status_label.configure(text="⏳  Ожидание...", text_color=self.COLOR_TEXT_DIM)
             self.progress_bar.set(0)
 
+    def start_winws(self):
+        """Запускает winws.exe для обхода DPI Discord Voice"""
+        winws_exe = os.path.join(self.bin_path, "winws.exe")
+        if not os.path.exists(winws_exe):
+            messagebox.showwarning(
+                "Zapret",
+                f"Не найден winws.exe в папке bin!\n"
+                f"Скачайте zapret-win-bundle с GitHub и положите\n"
+                f"winws.exe, WinDivert.dll, WinDivert64.sys в:\n{self.bin_path}"
+            )
+            return
+
+        try:
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+
+            self.winws_process = subprocess.Popen(
+                [
+                    winws_exe,
+                    "--wf-udp=443,50000-65535",
+                    "--filter-l7=discord,stun",
+                    "--dpi-desync=fake",
+                    "--dpi-desync-repeats=6",
+                    "--dpi-desync-any-protocol"
+                ],
+                startupinfo=startupinfo,
+                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
+                cwd=self.bin_path,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+        except Exception as e:
+            messagebox.showwarning("Zapret", f"Не удалось запустить winws.exe:\n{e}")
+            self.winws_process = None
+
+    def stop_winws(self):
+        """Останавливает winws.exe"""
+        if self.winws_process:
+            try:
+                self.winws_process.terminate()
+                self.winws_process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                try:
+                    subprocess.call(
+                        ['taskkill', '/F', '/T', '/PID', str(self.winws_process.pid)],
+                        startupinfo=subprocess.STARTUPINFO(),
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL
+                    )
+                except:
+                    pass
+            except Exception:
+                pass
+            self.winws_process = None
+
     def on_closing(self):
         self.save_settings()
+        # Останавливаем winws.exe
+        self.stop_winws()
         # При закрытии окна мягко завершаем прокси
         if self.is_running and self.mihomo_process:
             try:
@@ -778,8 +905,15 @@ def is_admin():
 if __name__ == "__main__":
     if is_admin():
         # Если мы администратор, запускаем приложение
-        app = ProxyApp()
-        app.mainloop()
+        try:
+            app = ProxyApp()
+            app.mainloop()
+        except Exception as e:
+            import traceback
+            crash_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "crash_log.txt")
+            with open(crash_path, "w", encoding="utf-8") as f:
+                traceback.print_exc(file=f)
+            raise
     else:
         # Если нет, пытаемся перезапустить с правами администратора
         print("Запрос прав администратора...")
@@ -793,7 +927,7 @@ if __name__ == "__main__":
         else:
             # Если это обычный питон скрипт
             script = os.path.abspath(sys.argv[0])
-            params = " ".join([script] + sys.argv[1:])
+            params = f'"{script}"' + (" " + " ".join(sys.argv[1:]) if sys.argv[1:] else "")
             work_dir = os.path.dirname(script)
             ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, params, work_dir, 1)
         # Оригинальный процесс без прав просто закрывается
